@@ -1,0 +1,66 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  backend-tests:
+    name: Backend (Python/FastAPI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest ruff bandit httpx
+
+      - name: Security Check (SAST)
+        run: bandit -r backend/ -ll -ii
+        
+      - name: Linting
+        run: ruff check backend/
+
+      - name: Run Pytest (Integrity & AI Validation)
+        run: pytest backend/ -v
+
+  frontend-tests:
+    name: Frontend (React/Vite)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Security Check (SCA)
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+      - name: Linting
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build Test
+        working-directory: frontend
+        run: npm run build
